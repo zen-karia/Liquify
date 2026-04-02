@@ -1,5 +1,10 @@
 source 'https://rubygems.org'
 
-gem 'sinatra', '~> 3.0'
-gem 'json',    '~> 2.0'
-gem 'webrick', '~> 1.8'
+gem 'sinatra',              '~> 3.0'
+gem 'json',                '~> 2.0'
+gem 'webrick',             '~> 1.8'
+
+# AI providers — user supplies whichever key they have
+gem 'anthropic',           '~> 0.3'
+gem 'ruby-openai',         '~> 7.0'
+# Gemini uses net/http directly — no gem needed
