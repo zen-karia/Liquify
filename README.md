@@ -250,15 +250,19 @@ bundle exec ruby -e "Dir['test/test_*.rb'].each { |f| require_relative f }"
 Liquify/
 ├── bin/liquify              # CLI entry point
 ├── lib/liquify/
-│   ├── analyzer.rb          # Bridges Ruby → C++ binary
-│   ├── ai.rb                # AI provider integrations
+│   ├── analyzer.rb          # Bridges Ruby → C++ binary (auto-selects by OS)
+│   ├── ai.rb                # AI provider integrations (Claude, GPT-4o, Gemini)
 │   ├── formatter.rb         # Colored terminal output
 │   ├── differ.rb            # Colored diff for --fix preview
-│   └── cli.rb               # Argument parsing
+│   ├── version.rb           # Gem version
+│   └── cli.rb               # Argument parsing and orchestration
 ├── cpp_engine/
 │   ├── analyzer.cpp         # High-speed Liquid parser (C++)
 │   ├── lazy_props.txt       # Configurable lazy-loaded property list
-│   └── bin/                 # Pre-compiled binaries (Linux, macOS, Windows)
+│   └── bin/                 # Pre-compiled binaries (auto-built via GitHub Actions)
+│       ├── liquid_analyzer-linux
+│       ├── liquid_analyzer-macos
+│       └── liquid_analyzer-windows.exe
 ├── test/
 │   ├── fixtures/            # Sample Liquid files for tests
 │   └── test_*.rb            # Minitest test files
