@@ -6,6 +6,14 @@
 #include <stack>
 #include <set>
 
+// Shopify object properties that are lazily loaded from the database.
+// Accessing these inside a loop triggers one DB query per iteration — N+1.
+static const std::set<std::string> LAZY_PROPS = {
+    "metafields", "variants", "images", "media",
+    "collections", "tags", "options", "selling_plan_groups",
+    "metaobjects", "files", "reviews", "related_products"
+};
+
 // Escape a string for safe JSON embedding
 std::string json_escape(const std::string& s) {
     std::string out;
@@ -28,6 +36,14 @@ std::string trim(const std::string& s) {
     size_t start = s.find_first_not_of(" \t\r\n");
     size_t end   = s.find_last_not_of(" \t\r\n");
     return (start == std::string::npos) ? "" : s.substr(start, end - start + 1);
+}
+
+// Check if a line was already flagged at this line number
+bool already_flagged(const std::vector<std::pair<int,std::string>>& issues, int line_no) {
+    for (auto& p : issues) {
+        if (p.first == line_no) return true;
+    }
+    return false;
 }
 
 struct Issue {
@@ -57,9 +73,8 @@ int main(int argc, char* argv[]) {
     // {% endfor %}
     std::regex endfor_re(R"(\{%-?\s*endfor\s*-?%\})");
 
-    // {{ VAR.prop ... }} — object property output
-    // Group 1 = object name
-    std::regex output_re(R"(\{\{-?\s*(\w+)\.\w+.*?-?\}\})");
+    // {{ VAR.prop ... }} — captures object name (group 1) and property (group 2)
+    std::regex output_re(R"(\{\{-?\s*(\w+)\.(\w+).*?-?\}\})");
 
     std::vector<std::string> lines;
     std::string ln;
@@ -72,9 +87,9 @@ int main(int argc, char* argv[]) {
 
     // Stack: each entry is the loop variable name introduced at that depth.
     // We also maintain the set of all active loop variables for O(1) lookup.
-    std::stack<std::string> loop_var_stack;  // preserves order / depth count
+    std::stack<std::string> loop_var_stack;
     std::set<std::string>   active_loop_vars;
-    int loop_depth = 0;  // current nesting level (0 = outside all loops)
+    int loop_depth = 0;
 
     for (int i = 0; i < (int)lines.size(); i++) {
         const std::string& line = lines[i];
@@ -103,34 +118,39 @@ int main(int argc, char* argv[]) {
                 issues.push_back({line_no, "N+1 query detected", trim(line)});
             }
 
-            // Push loop variable onto the stack regardless
             loop_var_stack.push(loop_var);
             active_loop_vars.insert(loop_var);
             loop_depth++;
         }
 
-        // --- Check for {{ var.prop }} output expressions (only inside NESTED loops) ---
-        // depth >= 2 means we're inside at least two levels of for loops — genuine N+1 context
-        if (loop_depth >= 2) {
+        // --- Check for {{ var.prop }} output expressions ---
+        // Rule A: depth >= 2 — any loop var property access in a nested loop
+        // Rule B: depth >= 1 — loop var accessing a KNOWN lazy-loaded Shopify property
+        if (loop_depth >= 1) {
             auto out_it  = std::sregex_iterator(line.begin(), line.end(), output_re);
             auto out_end = std::sregex_iterator();
 
             for (auto it = out_it; it != out_end; ++it) {
-                std::smatch m  = *it;
-                std::string obj = m[1].str();
+                std::smatch m    = *it;
+                std::string obj  = m[1].str();   // e.g. "product"
+                std::string prop = m[2].str();   // e.g. "metafields"
 
-                // Flag if the object is an active loop variable — every access
-                // inside a loop body that touches a loop var's property is
-                // a potential lazy-load / N+1.
-                if (active_loop_vars.count(obj)) {
-                    // Avoid double-reporting lines already flagged (e.g. for opener)
+                bool is_loop_var  = active_loop_vars.count(obj) > 0;
+                bool is_lazy_prop = LAZY_PROPS.count(prop) > 0;
+
+                bool flag = false;
+                if (is_loop_var && loop_depth >= 2)  flag = true;  // Rule A
+                if (is_loop_var && is_lazy_prop)      flag = true;  // Rule B (any depth)
+
+                if (flag) {
+                    // Avoid double-reporting lines already flagged
                     bool already = false;
                     for (auto& iss : issues) {
                         if (iss.line_number == line_no) { already = true; break; }
                     }
                     if (!already) {
                         issues.push_back({line_no, "N+1 query detected", trim(line)});
-                        break; // one report per line is enough
+                        break;
                     }
                 }
             }
@@ -144,8 +164,6 @@ int main(int argc, char* argv[]) {
             if (!loop_var_stack.empty()) {
                 std::string var = loop_var_stack.top();
                 loop_var_stack.pop();
-                // Only remove from active set if no other level still uses this var name
-                // (edge case: same var name reused at different depths — keep if still in stack)
                 bool still_active = false;
                 std::stack<std::string> tmp = loop_var_stack;
                 while (!tmp.empty()) {

@@ -94,7 +94,7 @@ module Liquify
 
     private
 
-    def self.call_anthropic(snippet)
+    def self.call_anthropic(prompt)
       require 'anthropic'
       client   = Anthropic::Client.new(access_token: ENV['ANTHROPIC_API_KEY'])
       response = client.messages(
@@ -102,13 +102,15 @@ module Liquify
           model:      'claude-opus-4-6',
           max_tokens: 1024,
           system:     SYSTEM_PROMPT,
-          messages:   [{ role: 'user', content: snippet }]
+          messages:   [{ role: 'user', content: prompt }]
         }
       )
       response.dig('content', 0, 'text')&.strip
+    rescue => e
+      handle_error(:anthropic, e)
     end
 
-    def self.call_openai(snippet)
+    def self.call_openai(prompt)
       require 'openai'
       client   = OpenAI::Client.new(access_token: ENV['OPENAI_API_KEY'])
       response = client.chat(
@@ -116,19 +118,21 @@ module Liquify
           model:    'gpt-4o',
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user',   content: snippet }
+            { role: 'user',   content: prompt }
           ]
         }
       )
       response.dig('choices', 0, 'message', 'content')&.strip
+    rescue => e
+      handle_error(:openai, e)
     end
 
-    def self.call_gemini(snippet)
+    def self.call_gemini(prompt)
       api_key  = ENV['GEMINI_API_KEY']
       endpoint = URI("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=#{api_key}")
       body     = {
         system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [{ role: 'user', parts: [{ text: snippet }] }]
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
       }.to_json
 
       http         = Net::HTTP.new(endpoint.host, endpoint.port)
@@ -139,6 +143,21 @@ module Liquify
 
       parsed = JSON.parse(http.request(req).body)
       parsed.dig('candidates', 0, 'content', 'parts', 0, 'text')&.strip
+    rescue => e
+      handle_error(:gemini, e)
+    end
+
+    def self.handle_error(provider, error)
+      msg = case error.class.to_s
+            when /Unauthorized/, /401/  then "Invalid API key for #{provider}. Check your #{provider.upcase}_API_KEY."
+            when /ResourceNotFound/,
+                 /NotFound/, /404/      then "Model not available on your #{provider} plan. Try a different model or plan."
+            when /TooManyRequests/, /429/ then "Rate limit hit for #{provider}. Wait a moment and try again."
+            when /Timeout/, /Connection/ then "Could not reach #{provider} API. Check your internet connection."
+            else                          "#{provider.capitalize} API error: #{error.message}"
+            end
+      $stderr.puts "  \e[33m⚠  #{msg}\e[0m"
+      nil
     end
   end
 end
