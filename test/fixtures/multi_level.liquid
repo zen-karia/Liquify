@@ -1,0 +1,6 @@
+{% for product in collections.frontpage.products %}
+  <h2>{{ product.title }}</h2>
+  {% for metafield in product.metafields %}
+    <span>{{ metafield.value }}</span>
+  {% endfor %}
+{% endfor %}

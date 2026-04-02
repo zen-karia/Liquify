@@ -18,4 +18,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'anthropic',   '~> 0.4'
   spec.add_dependency 'ruby-openai', '~> 7.0'
   # Gemini uses net/http directly — no gem needed
+
+  spec.add_development_dependency 'minitest', '~> 5.0'
 end

@@ -1,0 +1,5 @@
+{% for product in collection.products %}
+  {% for variant in product.variants %}
+    <p>{{ variant.price }}</p>
+  {% endfor %}
+{% endfor %}
