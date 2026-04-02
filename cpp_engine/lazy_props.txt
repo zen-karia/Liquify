@@ -1,0 +1,17 @@
+# Shopify Liquid properties that are lazily loaded from the database.
+# Accessing these inside a loop triggers one DB query per iteration (N+1).
+# Add custom properties for your theme below.
+# Lines starting with # are comments.
+
+metafields
+variants
+images
+media
+collections
+tags
+options
+selling_plan_groups
+metaobjects
+files
+reviews
+related_products

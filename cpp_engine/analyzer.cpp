@@ -6,13 +6,39 @@
 #include <stack>
 #include <set>
 
-// Shopify object properties that are lazily loaded from the database.
-// Accessing these inside a loop triggers one DB query per iteration — N+1.
-static const std::set<std::string> LAZY_PROPS = {
-    "metafields", "variants", "images", "media",
-    "collections", "tags", "options", "selling_plan_groups",
-    "metaobjects", "files", "reviews", "related_products"
-};
+// Load lazy-loaded property names from a config file next to the binary.
+// Falls back to a sensible default set if the file is not found.
+std::set<std::string> load_lazy_props(const std::string& binary_path) {
+    std::set<std::string> props;
+
+    // Derive config path: same directory as the binary
+    std::string dir = binary_path;
+    size_t slash = dir.find_last_of("/\\");
+    if (slash != std::string::npos) dir = dir.substr(0, slash + 1);
+    else dir = "./";
+
+    std::ifstream cfg(dir + "lazy_props.txt");
+    if (cfg.is_open()) {
+        std::string line;
+        while (std::getline(cfg, line)) {
+            // Strip whitespace
+            size_t s = line.find_first_not_of(" \t\r\n");
+            if (s == std::string::npos) continue;
+            line = line.substr(s, line.find_last_not_of(" \t\r\n") - s + 1);
+            // Skip comments and empty lines
+            if (line.empty() || line[0] == '#') continue;
+            props.insert(line);
+        }
+        return props;
+    }
+
+    // Default fallback if config file not found
+    return {
+        "metafields", "variants", "images", "media",
+        "collections", "tags", "options", "selling_plan_groups",
+        "metaobjects", "files", "reviews", "related_products"
+    };
+}
 
 // Escape a string for safe JSON embedding
 std::string json_escape(const std::string& s) {
@@ -57,6 +83,9 @@ int main(int argc, char* argv[]) {
         std::cerr << "Usage: liquid_analyzer <file_path>\n";
         return 1;
     }
+
+    // Load lazy props from config file next to the binary
+    const std::set<std::string> LAZY_PROPS = load_lazy_props(argv[0]);
 
     std::ifstream file(argv[1]);
     if (!file.is_open()) {

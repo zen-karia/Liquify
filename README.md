@@ -211,6 +211,20 @@ Liquify auto-detects which key you have set. Priority order: Anthropic → OpenA
 
 ---
 
+## Customizing lazy-loaded properties
+
+Liquify ships with a default list of known Shopify lazy-loaded properties in `cpp_engine/lazy_props.txt`. You can edit this file to add custom properties specific to your theme — no recompile needed.
+
+```
+# cpp_engine/lazy_props.txt
+metafields
+variants
+images
+my_custom_lazy_property   ← add your own here
+```
+
+---
+
 ## Project structure
 
 ```
