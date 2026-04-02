@@ -1,0 +1,17 @@
+# C++ build artifacts
+cpp_engine/liquid_analyzer
+cpp_engine/*.exe
+cpp_engine/*.o
+
+# Ruby / Bundler
+ruby_backend/.bundle/
+ruby_backend/vendor/
+ruby_backend/*.lock
+
+# Temp files created by the server
+ruby_backend/temp_*.liquid
+
+# Logs
+*.log
+/tmp/
+.claude/

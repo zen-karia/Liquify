@@ -1,0 +1,19 @@
+{% comment %} Safe loop — no dotted collection, should NOT be flagged {% endcomment %}
+{% for item in cart.items %}
+  <p>{{ item.title }}</p>
+{% endfor %}
+
+{% comment %} N+1 leak — iterating over product.metafields triggers a DB query per product {% endcomment %}
+{% for product in collections.frontpage.products %}
+  <h2>{{ product.title }}</h2>
+  {% for metafield in product.metafields %}
+    <span>{{ metafield.value }}</span>
+  {% endfor %}
+{% endfor %}
+
+{% comment %} Another N+1 — variant.price accessed inside a nested product loop {% endcomment %}
+{% for product in collection.products %}
+  {% for variant in product.variants %}
+    <p>{{ variant.price }}</p>
+  {% endfor %}
+{% endfor %}
