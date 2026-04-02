@@ -30,8 +30,9 @@ module Liquify
 
       lines << "  Scanning : #{c(file_path, BOLD)}"
 
+      model_names = { anthropic: 'Anthropic (claude-opus-4-6)', openai: 'OpenAI (gpt-4.5-preview)', gemini: 'Google (gemini-2.5-pro)' }
       if provider
-        lines << "  Provider : #{c(provider.to_s.capitalize, BOLD + CYAN)}"
+        lines << "  Provider : #{c(model_names[provider] || provider.to_s.capitalize, BOLD + CYAN)}"
       else
         lines << "  Provider : #{c('None', YELLOW)} #{c('(set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY)', GRAY)}"
       end

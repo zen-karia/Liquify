@@ -55,7 +55,7 @@ module Liquify
       client   = OpenAI::Client.new(access_token: ENV['OPENAI_API_KEY'])
       response = client.chat(
         parameters: {
-          model:    'gpt-4o',
+          model:    'gpt-4.5-preview',
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user',   content: snippet }
@@ -67,7 +67,7 @@ module Liquify
 
     def self.call_gemini(snippet)
       api_key  = ENV['GEMINI_API_KEY']
-      endpoint = URI("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=#{api_key}")
+      endpoint = URI("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=#{api_key}")
       body     = {
         system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
         contents: [{ role: 'user', parts: [{ text: snippet }] }]
