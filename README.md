@@ -11,7 +11,7 @@ C++ parser (fast static analysis)
         ↓
 N+1 patterns detected
         ↓
-AI provider (Claude / GPT-4.5 / Gemini)
+AI provider (Claude / GPT-4o / Gemini)
         ↓
 Optimized Liquid code suggested in your terminal
 ```
@@ -68,10 +68,12 @@ Liquify's real power is at scale — scan 50 Liquid files in milliseconds, integ
 ## Requirements
 
 - **Ruby 3.0+** — [rubyinstaller.org](https://rubyinstaller.org) (Windows) or `brew install ruby` (Mac)
-- **g++** — for compiling the C++ parser on first run
+- **g++** — only needed if a pre-compiled binary isn't available for your platform
   - Mac: `xcode-select --install`
   - Linux: `sudo apt install g++`
   - Windows: included with RubyInstaller+Devkit (select it during Ruby installation)
+
+> Pre-compiled binaries for Linux, macOS, and Windows are built automatically via GitHub Actions and bundled in `cpp_engine/bin/`. Most users won't need to install g++ at all.
 
 ---
 
@@ -83,7 +85,7 @@ cd Liquify
 bundle install
 ```
 
-The C++ parser compiles automatically the first time you run the tool. No manual steps needed.
+Liquify automatically picks the right pre-compiled binary for your platform. If none is found, it compiles from source using `g++`.
 
 ---
 
@@ -96,7 +98,7 @@ Liquify supports three AI providers. You only need **one**. Set whichever API ke
 | Provider | Where to get it |
 |---|---|
 | Anthropic (Claude) | platform.anthropic.com → API Keys |
-| OpenAI (GPT-4.5) | platform.openai.com → API Keys |
+| OpenAI (GPT-4o) | platform.openai.com → API Keys |
 | Google (Gemini) | aistudio.google.com → Get API Key |
 
 ---
@@ -150,11 +152,20 @@ $env:ANTHROPIC_API_KEY="sk-ant-your-key-here"
 # Scan a single file
 ruby bin/liquify path/to/template.liquid
 
+# Scan an entire directory recursively
+ruby bin/liquify templates/
+
 # Scan multiple files
 ruby bin/liquify templates/*.liquid
 
-# Auto-fix all detected issues in place (saves .bak backup first)
+# Show a diff and ask for confirmation before applying AI fixes
 ruby bin/liquify path/to/template.liquid --fix
+
+# Apply fixes directly without confirmation (for CI/CD)
+ruby bin/liquify path/to/template.liquid --fix --yes
+
+# Output results as JSON (for CI/CD pipelines)
+ruby bin/liquify templates/ --format=json
 
 # Show help
 ruby bin/liquify --help
@@ -165,7 +176,7 @@ ruby bin/liquify --version
 
 No API key set? Liquify still runs — it detects and flags all N+1 issues, just without the AI-generated fix.
 
-> **Note:** `--fix` rewrites the file directly. A backup is always saved as `template.liquid.bak` before any changes are made.
+> **Note:** `--fix` always shows a colored diff and asks for confirmation before writing. Use `--fix --yes` to skip confirmation in automated pipelines. A `.bak` backup is always saved before any changes are made.
 
 ---
 
@@ -225,6 +236,14 @@ my_custom_lazy_property   ← add your own here
 
 ---
 
+## Running tests
+
+```bash
+bundle exec ruby -e "Dir['test/test_*.rb'].each { |f| require_relative f }"
+```
+
+---
+
 ## Project structure
 
 ```
@@ -234,9 +253,15 @@ Liquify/
 │   ├── analyzer.rb          # Bridges Ruby → C++ binary
 │   ├── ai.rb                # AI provider integrations
 │   ├── formatter.rb         # Colored terminal output
+│   ├── differ.rb            # Colored diff for --fix preview
 │   └── cli.rb               # Argument parsing
 ├── cpp_engine/
-│   └── analyzer.cpp         # High-speed Liquid parser (C++)
+│   ├── analyzer.cpp         # High-speed Liquid parser (C++)
+│   ├── lazy_props.txt       # Configurable lazy-loaded property list
+│   └── bin/                 # Pre-compiled binaries (Linux, macOS, Windows)
+├── test/
+│   ├── fixtures/            # Sample Liquid files for tests
+│   └── test_*.rb            # Minitest test files
 └── liquify.gemspec
 ```
 
