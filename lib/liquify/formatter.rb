@@ -19,7 +19,7 @@ module Liquify
       c(char * WIDTH, GRAY)
     end
 
-    def self.render(file_path, issues, provider)
+    def self.render(file_path, issues, provider, backup_path: nil)
       lines = []
 
       # Header
@@ -30,7 +30,7 @@ module Liquify
 
       lines << "  Scanning : #{c(file_path, BOLD)}"
 
-      model_names = { anthropic: 'Anthropic (claude-opus-4-6)', openai: 'OpenAI (gpt-4.5-preview)', gemini: 'Google (gemini-2.5-pro)' }
+      model_names = { anthropic: 'Anthropic (claude-opus-4-6)', openai: 'OpenAI (gpt-4o)', gemini: 'Google (gemini-2.5-pro)' }
       if provider
         lines << "  Provider : #{c(model_names[provider] || provider.to_s.capitalize, BOLD + CYAN)}"
       else
@@ -53,7 +53,9 @@ module Liquify
           lines << "  #{c('↳  ' + issue['code_snippet'].strip, RED)}"
           lines << ''
 
-          if issue['optimized_code'] && !issue['optimized_code'].empty?
+          if issue['auto_fixed']
+            lines << "  #{c('✔  Auto-fixed and written to file.', GREEN + BOLD)}"
+          elsif issue['optimized_code'] && !issue['optimized_code'].empty?
             lines << "  #{c('✦  Optimized Code:', GREEN + BOLD)}"
             issue['optimized_code'].each_line do |ln|
               lines << "     #{c(ln.chomp, GREEN)}"
@@ -66,7 +68,12 @@ module Liquify
         end
 
         lines << divider
-        lines << "  #{c("#{issues.size} issue(s) found.", YELLOW + BOLD)}"
+        if backup_path
+          lines << "  #{c("#{issues.size} issue(s) auto-fixed.", GREEN + BOLD)}"
+          lines << "  #{c("Original saved to: #{backup_path}", GRAY)}"
+        else
+          lines << "  #{c("#{issues.size} issue(s) found.", YELLOW + BOLD)}"
+        end
         lines << c('═' * WIDTH, CYAN)
       end
 

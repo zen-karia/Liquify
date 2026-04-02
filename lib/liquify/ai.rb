@@ -6,7 +6,7 @@ module Liquify
   module AI
     SYSTEM_PROMPT = <<~PROMPT
       You are a Shopify Liquid performance expert.
-      You will be given a Liquid template snippet that contains an N+1 database query pattern.
+      You will be given a single Liquid template snippet that contains an N+1 database query pattern.
 
       Your task:
       - Refactor the code to eliminate the N+1 query
@@ -14,8 +14,12 @@ module Liquify
       - Preserve the original HTML structure and output
 
       Rules:
-      - Return ONLY the refactored Liquid code
-      - No explanations, no markdown, no code fences
+      - Return ONLY the refactored Liquid code, nothing else
+      - Do NOT repeat the original code
+      - Do NOT include explanations, headers, labels, or commentary
+      - Do NOT use markdown, code fences, or any special characters
+      - Do NOT include symbols like ⚠, ↳, ✦, or similar
+      - If the snippet is a single line with no loop context, just return the optimized version of that line
       - If the full context is needed, make reasonable assumptions
     PROMPT
 
@@ -26,12 +30,66 @@ module Liquify
       nil
     end
 
-    def self.refactor(snippet)
-      case detect_provider
-      when :anthropic then call_anthropic(snippet)
-      when :openai    then call_openai(snippet)
-      when :gemini    then call_gemini(snippet)
-      end
+    def self.refactor(snippet, full_template)
+      prompt = build_prompt(snippet, full_template)
+      raw = case detect_provider
+            when :anthropic then call_anthropic(prompt)
+            when :openai    then call_openai(prompt)
+            when :gemini    then call_gemini(prompt)
+            end
+      sanitize(raw)
+    end
+
+    def self.build_prompt(snippet, full_template)
+      <<~PROMPT
+        Here is the full Liquid template for context:
+
+        #{full_template}
+
+        The following specific line was flagged as an N+1 query:
+
+        #{snippet}
+
+        Refactor the relevant section of the template to fix this N+1 issue.
+      PROMPT
+    end
+
+    def self.fix_template(full_template, issues)
+      flagged = issues.map.with_index(1) do |issue, i|
+        "Issue ##{i} (Line #{issue['line_number']}): #{issue['code_snippet'].strip}"
+      end.join("\n")
+
+      prompt = <<~PROMPT
+        Here is a Shopify Liquid template with N+1 database query issues:
+
+        #{full_template}
+
+        The following lines were flagged as N+1 queries:
+
+        #{flagged}
+
+        Return the COMPLETE fixed template with ALL issues resolved.
+        Rules:
+        - Return ONLY the full fixed Liquid template, nothing else
+        - Do NOT include explanations, markdown, or code fences
+        - Preserve all HTML structure, whitespace style, and comments
+        - Batch data fetching outside loops using assign or map
+      PROMPT
+
+      raw = case detect_provider
+            when :anthropic then call_anthropic(prompt)
+            when :openai    then call_openai(prompt)
+            when :gemini    then call_gemini(prompt)
+            end
+      sanitize(raw)
+    end
+
+    def self.sanitize(response)
+      return nil if response.nil?
+      # Strip any lines that contain our own formatting markers
+      # (happens when the AI mimics the tool's output format)
+      cleaned = response.lines.reject { |l| l.match?(/[⚠↳✦]/) }.join
+      cleaned.strip
     end
 
     private
@@ -55,7 +113,7 @@ module Liquify
       client   = OpenAI::Client.new(access_token: ENV['OPENAI_API_KEY'])
       response = client.chat(
         parameters: {
-          model:    'gpt-4.5-preview',
+          model:    'gpt-4o',
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user',   content: snippet }

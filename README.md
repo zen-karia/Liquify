@@ -48,6 +48,23 @@ With 50 products this fires **51 database queries** instead of 2. Your storefron
 
 ---
 
+## Why Liquify?
+
+You could ask an AI chatbot to review your Liquid files manually. But Liquify is built for real development workflows:
+
+| | AI Chatbot | Liquify |
+|---|---|---|
+| Scans entire theme automatically | ✗ | ✓ |
+| Works in CI/CD pipelines | ✗ | ✓ |
+| Auto-fixes files with `--fix` | ✗ | ✓ |
+| Needs a browser / chat interface | ✓ | ✗ |
+| Consistent, repeatable results | ✗ | ✓ |
+| Bring your own API key | ✗ | ✓ |
+
+Liquify's real power is at scale — scan 50 Liquid files in milliseconds, integrate it into your CI pipeline, and catch N+1 issues before they reach production.
+
+---
+
 ## Requirements
 
 - **Ruby 3.0+** — [rubyinstaller.org](https://rubyinstaller.org) (Windows) or `brew install ruby` (Mac)
@@ -136,6 +153,9 @@ ruby bin/liquify path/to/template.liquid
 # Scan multiple files
 ruby bin/liquify templates/*.liquid
 
+# Auto-fix all detected issues in place (saves .bak backup first)
+ruby bin/liquify path/to/template.liquid --fix
+
 # Show help
 ruby bin/liquify --help
 
@@ -144,6 +164,8 @@ ruby bin/liquify --version
 ```
 
 No API key set? Liquify still runs — it detects and flags all N+1 issues, just without the AI-generated fix.
+
+> **Note:** `--fix` rewrites the file directly. A backup is always saved as `template.liquid.bak` before any changes are made.
 
 ---
 
@@ -184,7 +206,7 @@ Liquify auto-detects which key you have set. Priority order: Anthropic → OpenA
 | Provider | Environment Variable | Model |
 |---|---|---|
 | Anthropic | `ANTHROPIC_API_KEY` | claude-opus-4-6 |
-| OpenAI | `OPENAI_API_KEY` | gpt-4.5-preview |
+| OpenAI | `OPENAI_API_KEY` | gpt-4o |
 | Google | `GEMINI_API_KEY` | gemini-2.5-pro |
 
 ---

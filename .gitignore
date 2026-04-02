@@ -11,6 +11,9 @@ ruby_backend/*.lock
 # Temp files created by the server
 ruby_backend/temp_*.liquid
 
+# Backup files created by --fix
+*.bak
+
 # Logs
 *.log
 /tmp/
