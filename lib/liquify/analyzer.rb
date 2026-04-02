@@ -1,22 +1,38 @@
 require 'open3'
 require 'tempfile'
 require 'json'
+require 'rbconfig'
 
 module Liquify
   module Analyzer
-    # The compiled C++ binary sits inside cpp_engine/ at the repo root
-    # On Windows g++ produces .exe, on Unix no extension
-    _base   = File.expand_path('../../../cpp_engine/liquid_analyzer', __FILE__)
-    BINARY  = File.exist?(_base + '.exe') ? _base + '.exe' : _base
+    ROOT = File.expand_path('../../../', __FILE__)
+
+    # Resolve the correct pre-compiled binary for the current platform.
+    # Falls back to a locally compiled binary if the distributed one isn't found.
+    def self.binary_path
+      platform_name = case RbConfig::CONFIG['host_os']
+                      when /mswin|mingw|cygwin/ then 'liquid_analyzer-windows.exe'
+                      when /darwin/             then
+                        RbConfig::CONFIG['host_cpu'] =~ /arm|aarch64/ ?
+                          'liquid_analyzer-macos-arm64' : 'liquid_analyzer-macos'
+                      else                           'liquid_analyzer-linux'
+                      end
+
+      distributed = File.join(ROOT, 'cpp_engine', 'bin', platform_name)
+      return distributed if File.exist?(distributed)
+
+      # Fall back to locally compiled binary
+      local = File.join(ROOT, 'cpp_engine', 'liquid_analyzer')
+      return local + '.exe' if File.exist?(local + '.exe')
+      local
+    end
 
     def self.run(file_path)
-      ensure_binary!
+      binary = binary_path
+      ensure_binary!(binary)
 
-      stdout, stderr, status = Open3.capture3(BINARY, file_path)
-
-      unless status.success?
-        raise "Analyzer binary failed: #{stderr.strip}"
-      end
+      stdout, stderr, status = Open3.capture3(binary, file_path)
+      raise "Analyzer binary failed: #{stderr.strip}" unless status.success?
 
       JSON.parse(stdout)
     end
@@ -35,17 +51,18 @@ module Liquify
 
     private
 
-    def self.ensure_binary!
-      return if File.exist?(BINARY)
+    def self.ensure_binary!(binary)
+      return if File.exist?(binary)
 
-      src  = File.expand_path('../../../cpp_engine/analyzer.cpp', __FILE__)
+      src  = File.join(ROOT, 'cpp_engine', 'analyzer.cpp')
       raise "analyzer.cpp not found at #{src}" unless File.exist?(src)
 
-      base = File.expand_path('../../../cpp_engine/liquid_analyzer', __FILE__)
-      puts "  Compiling C++ engine..."
-      system("g++ -std=c++17 -O2 -o \"#{base}\" \"#{src}\"")
+      out = File.join(ROOT, 'cpp_engine', 'liquid_analyzer')
+      puts "  Pre-compiled binary not found. Compiling from source..."
+      puts "  (tip: run the GitHub Actions workflow to generate pre-compiled binaries)"
+      system("g++ -std=c++17 -O2 -o \"#{out}\" \"#{src}\"")
 
-      compiled = File.exist?(base) || File.exist?(base + '.exe')
+      compiled = File.exist?(out) || File.exist?(out + '.exe')
       raise "Compilation failed. Is g++ installed?" unless compiled
     end
   end

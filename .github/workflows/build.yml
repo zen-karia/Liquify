@@ -1,0 +1,66 @@
+name: Build C++ Binaries
+
+on:
+  push:
+    paths:
+      - 'cpp_engine/analyzer.cpp'
+      - '.github/workflows/build.yml'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            output: liquid_analyzer-linux
+          - os: macos-latest
+            output: liquid_analyzer-macos
+          - os: windows-latest
+            output: liquid_analyzer-windows.exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile C++ binary
+        run: g++ -std=c++17 -O2 -o cpp_engine/bin/${{ matrix.output }} cpp_engine/analyzer.cpp
+        shell: bash
+
+      - name: Upload binary as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.output }}
+          path: cpp_engine/bin/${{ matrix.output }}
+
+  commit:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: cpp_engine/bin/
+
+      - name: Fix artifact subdirectory structure
+        run: |
+          cd cpp_engine/bin
+          for dir in */; do
+            mv "$dir"* . 2>/dev/null || true
+            rmdir "$dir" 2>/dev/null || true
+          done
+        shell: bash
+
+      - name: Make Linux and macOS binaries executable
+        run: chmod +x cpp_engine/bin/liquid_analyzer-linux cpp_engine/bin/liquid_analyzer-macos || true
+
+      - name: Commit binaries to repo
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add cpp_engine/bin/
+          git diff --staged --quiet || git commit -m "Build: update pre-compiled binaries [skip ci]"
+          git push

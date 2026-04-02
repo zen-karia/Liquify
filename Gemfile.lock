@@ -3,6 +3,7 @@ PATH
   specs:
     liquify (0.1.0)
       anthropic (~> 0.4)
+      diff-lcs (~> 1.5)
       ruby-openai (~> 7.0)
 
 GEM
@@ -12,6 +13,7 @@ GEM
       event_stream_parser (>= 0.3.0, < 2.0.0)
       faraday (>= 1)
       faraday-multipart (>= 1)
+    diff-lcs (1.6.2)
     event_stream_parser (1.0.0)
     faraday (2.14.1)
       faraday-net_http (>= 2.0, < 3.5)

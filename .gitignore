@@ -1,4 +1,4 @@
-# C++ build artifacts
+# C++ local build artifacts (not the distributed binaries in bin/)
 cpp_engine/liquid_analyzer
 cpp_engine/*.exe
 cpp_engine/*.o

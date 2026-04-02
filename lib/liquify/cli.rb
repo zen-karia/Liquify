@@ -17,6 +17,7 @@ module Liquify
       end
 
       fix_mode    = argv.include?('--fix')
+      yes_mode    = argv.include?('--yes') || argv.include?('-y')
       json_mode   = argv.include?('--format=json') || argv.include?('--json')
       raw_paths   = argv.reject { |a| a.start_with?('-') }
 
@@ -58,11 +59,24 @@ module Liquify
             fixed_template = Liquify::AI.fix_template(full_template, issues)
 
             if fixed_template && !fixed_template.empty?
-              backup_path = file_path + '.bak'
-              File.write(backup_path, full_template)
-              File.write(file_path, fixed_template)
-              issues.each { |i| i['auto_fixed'] = true }
-              puts Liquify::Formatter.render(file_path, issues, provider, backup_path: backup_path) unless json_mode
+              unless json_mode
+                puts Liquify::Formatter.render(file_path, issues, provider)
+                puts "\n\e[1mProposed changes:\e[0m"
+                puts Liquify::Differ.render(full_template, fixed_template, file_path)
+                puts ''
+
+                confirmed = yes_mode || confirm("Apply these changes to #{file_path}?")
+              end
+
+              if json_mode || confirmed
+                backup_path = file_path + '.bak'
+                File.write(backup_path, full_template)
+                File.write(file_path, fixed_template)
+                issues.each { |i| i['auto_fixed'] = true }
+                puts "\n\e[32m✔  Changes applied. Original saved to #{backup_path}\e[0m" unless json_mode
+              else
+                puts "\e[33m  Skipped — no changes made.\e[0m"
+              end
             else
               warn "  Error: AI did not return a valid fixed template for #{file_path}."
               puts Liquify::Formatter.render(file_path, issues, provider) unless json_mode
@@ -97,12 +111,20 @@ module Liquify
       end
     end
 
+    def self.confirm(prompt)
+      print "\e[1m#{prompt} [y/N]: \e[0m"
+      $stdout.flush
+      answer = $stdin.gets&.strip&.downcase
+      answer == 'y' || answer == 'yes'
+    end
+
     def self.print_usage
       puts <<~USAGE
         Usage: liquify <file.liquid|directory> [more files...] [options]
 
         Options:
-          --fix              Auto-apply AI fixes directly to the file (saves .bak backup)
+          --fix              Show AI fixes as a diff and prompt for confirmation
+          --fix --yes        Apply fixes directly without confirmation (CI/CD)
           --format=json      Output results as JSON (useful for CI/CD pipelines)
           -h, --help         Show this help
           -v, --version      Show version
