@@ -6,6 +6,9 @@ on:
       - 'cpp_engine/analyzer.cpp'
       - '.github/workflows/build.yml'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -41,22 +44,17 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download all binaries
+      - name: Download all binaries into cpp_engine/bin/
         uses: actions/download-artifact@v4
         with:
           path: cpp_engine/bin/
-
-      - name: Fix artifact subdirectory structure
-        run: |
-          cd cpp_engine/bin
-          for dir in */; do
-            mv "$dir"* . 2>/dev/null || true
-            rmdir "$dir" 2>/dev/null || true
-          done
-        shell: bash
+          merge-multiple: true
 
       - name: Make Linux and macOS binaries executable
         run: chmod +x cpp_engine/bin/liquid_analyzer-linux cpp_engine/bin/liquid_analyzer-macos || true
